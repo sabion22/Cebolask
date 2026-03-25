@@ -21,10 +21,21 @@ const Calendar: React.FC = () => {
         <p style={{ color: 'var(--text-muted)' }}>Veja os prazos das suas tarefas.</p>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)', gap: '2rem', flex: 1 }}>
+      <div className="calendar-layout" style={{ display: 'flex', gap: '2rem', flex: 1 }}>
+        <style>{`
+          @media (max-width: 1024px) {
+            .calendar-layout { flex-direction: column !important; }
+            .calendar-grid-container { order: 2; }
+            .selected-day-container { order: 1; position: sticky; top: 80px; z-index: 2; }
+            .day-cell { min-height: 60px !important; }
+            .day-task-label { display: none !important; }
+            .day-task-dot { display: block !important; }
+          }
+          .day-task-dot { width: 4px; height: 4px; border-radius: 50%; background-color: var(--text-color); display: none; margin: 0 auto; }
+        `}</style>
         
         {/* Calendar Grid */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="card calendar-grid-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', textTransform: 'capitalize' }}>
               {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
@@ -62,6 +73,7 @@ const Calendar: React.FC = () => {
                 <div 
                   key={day.toISOString()} 
                   onClick={() => setSelectedDay(day)}
+                  className="day-cell"
                   style={{ 
                     borderTop: '1px solid var(--border-color)',
                     borderLeft: '1px solid var(--border-color)',
@@ -89,8 +101,9 @@ const Calendar: React.FC = () => {
                   </span>
                   
                   <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {dayTasks.length > 0 && <div className="day-task-dot" />}
                     {dayTasks.slice(0, 3).map(task => (
-                      <div key={task.id} style={{ 
+                      <div key={task.id} className="day-task-label" style={{ 
                         fontSize: '0.65rem', 
                         padding: '0.125rem 0.25rem', 
                         backgroundColor: task.status === 'done' ? 'var(--hover-bg)' : 'var(--bg-color)', 
@@ -105,7 +118,7 @@ const Calendar: React.FC = () => {
                       </div>
                     ))}
                     {dayTasks.length > 3 && (
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                      <div className="day-task-label" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                         + {dayTasks.length - 3} mais
                       </div>
                     )}
@@ -117,7 +130,7 @@ const Calendar: React.FC = () => {
         </div>
 
         {/* Selected Day View */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
+        <div className="card selected-day-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content', minWidth: '280px' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
             {selectedDay ? format(selectedDay, "dd 'de' MMMM", { locale: ptBR }) : 'Selecione um dia'}
           </h2>

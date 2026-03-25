@@ -310,10 +310,16 @@ const Tasks: React.FC = () => {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
-          <KanbanColumn status="todo" title="A Fazer" />
-          <KanbanColumn status="doing" title="Fazendo" />
-          <KanbanColumn status="done" title="Concluído" />
+        <div className="kanban-container" style={{ flex: 1, minHeight: 0 }}>
+          <div className="kanban-column">
+            <KanbanColumn status="todo" title="A Fazer" />
+          </div>
+          <div className="kanban-column">
+            <KanbanColumn status="doing" title="Fazendo" />
+          </div>
+          <div className="kanban-column">
+            <KanbanColumn status="done" title="Concluído" />
+          </div>
         </div>
       )}
 

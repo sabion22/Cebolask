@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+      <div className="stats-grid">
         <StatCard 
           title="Tarefas Pendentes" 
           value={pendingTasks.length} 

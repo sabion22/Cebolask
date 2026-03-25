@@ -108,50 +108,92 @@
   border: none;
 }
 
-body {
-  margin: 0;
+/* ==============================================================
+   LAYOUT & RESPONSIVENESS
+   ============================================================== */
+.sidebar-container {
+  width: 250px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 10;
+  transition: transform 0.3s ease;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+.main-content {
+  margin-left: 250px;
+  transition: margin 0.3s ease;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-container {
+    width: 280px;
+    transform: translateX(-100%);
+  }
+
+  .sidebar-container.open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 1.5rem 1rem !important;
+    padding-top: 80px !important;
+  }
+
+  .mobile-only {
+    display: flex;
+  }
+
+  h1 {
+    font-size: 28px !important;
+  }
+
+  /* Grid adjustments */
+  header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+
+  header > div:last-child {
+    width: 100%;
+    margin-top: 0.5rem;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+/* Kanban horizontal scroll on mobile */
+.kanban-container {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kanban-column {
+  min-width: 280px;
+  flex-shrink: 0;
+}
+
+/* Fix for overlapping cards in Dashboard */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  
+  .card {
+    padding: 1rem !important;
+  }
 }

@@ -92,9 +92,16 @@ const Clients: React.FC = () => {
           Voltar para {APP_CONFIG.texts.clientsTitle}
         </button>
 
-        <div style={{ display: 'flex', gap: '2rem', height: '100%' }}>
+        <div className="client-detail-layout" style={{ display: 'flex', gap: '2rem', height: '100%' }}>
+          <style>{`
+            @media (max-width: 768px) {
+              .client-detail-layout { flex-direction: column !important; gap: 1rem !important; }
+              .client-sidebar { width: 100% !important; }
+              .input, .textarea { font-size: 16px !important; } /* Melhora zoom no iOS */
+            }
+          `}</style>
           {/* Client Details Sidebar */}
-          <div style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="client-sidebar" style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="card" style={{ padding: '1.5rem', border: 'none' }}>
               <div style={{ width: 48, height: 48, backgroundColor: 'var(--hover-bg)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
                 <Building2 size={24} color="var(--text-color)" />
