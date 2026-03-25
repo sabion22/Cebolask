@@ -16,7 +16,7 @@ const Calendar: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
-      <header>
+      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>Calendário</h1>
         <p style={{ color: 'var(--text-muted)' }}>Veja os prazos das suas tarefas.</p>
       </header>

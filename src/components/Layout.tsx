@@ -26,7 +26,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate }) =>
         height: '60px', 
         backgroundColor: 'var(--bg-color)', 
         borderBottom: '1px solid var(--border-color)',
-        display: 'flex',
         alignItems: 'center',
         padding: '0 1rem',
         zIndex: 5,
