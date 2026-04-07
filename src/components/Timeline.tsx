@@ -3,9 +3,7 @@ import { useStore } from '../store';
 import { 
   format, 
   addDays, 
-  subDays, 
   differenceInDays, 
-  isSameDay, 
   eachDayOfInterval, 
   subMonths,
   addMonths,
@@ -24,9 +22,7 @@ import {
   Lock,
   Trash,
   Copy,
-  CheckCircle,
-  AlertCircle,
-  ChevronDown
+  CheckCircle
 } from 'lucide-react';
 import type { Objective } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,8 +49,8 @@ const Timeline: React.FC<TimelineProps> = ({ clientId }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showInternal, setShowInternal] = useState(true);
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [showInternal] = useState(true);
+  const [filterCategory] = useState('all');
 
   // INTERACTION STATES
   const [isPanning, setIsPanning] = useState(false);
@@ -216,7 +212,7 @@ const Timeline: React.FC<TimelineProps> = ({ clientId }) => {
       category: { name: formFields.category_name, color: formFields.category_color },
       visibility: formFields.visibility,
       createdBy: currentUser.uid,
-      creatorRole: internalUser ? 'user' : 'client'
+      creatorRole: internalUser ? 'user' as const : 'client' as const
     };
 
     if (editingObjective) {
