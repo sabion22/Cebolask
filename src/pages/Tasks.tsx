@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { APP_CONFIG } from '../constants';
 import type { Task, TaskStatus } from '../types';
 import { useStore } from '../store';
-import { LayoutList, Columns, Plus, Trash2, Bell, X, Link as LinkIcon, Tag, AlignLeft, Calendar as CalendarIcon, User, Building2 } from 'lucide-react';
+import { LayoutList, Columns, Plus, Trash2, Bell, X, Link as LinkIcon, Tag, AlignLeft, Calendar as CalendarIcon, User, Building2, StickyNote, ChevronDown, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
@@ -28,6 +28,7 @@ const Tasks: React.FC = () => {
   // Modal Form State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [assigneeId, setAssigneeId] = useState('');
   const [clientId, setClientId] = useState('');
@@ -37,7 +38,57 @@ const Tasks: React.FC = () => {
   const [linkInput, setLinkInput] = useState('');
   const [links, setLinks] = useState<string[]>([]);
 
+  // Client Select
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+
+  // Completion Modal
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [taskToComplete, setTaskToComplete] = useState<string | null>(null);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [completionObs, setCompletionObs] = useState('');
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  const filteredClients = clients.filter(c => 
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) || 
+    c.company.toLowerCase().includes(clientSearch.toLowerCase())
+  );
+
+  const selectedClient = clients.find(c => c.id === clientId);
+
+  const handleToggleStatus = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task && task.status !== 'done') {
+      setTaskToComplete(taskId);
+      setCompletionNotes('');
+      setCompletionObs('');
+      setCompletionModalOpen(true);
+    } else {
+      toggleTaskStatus(taskId);
+    }
+  };
+
+  const handleConfirmComplete = async () => {
+    if (taskToComplete) {
+      await toggleTaskStatus(taskToComplete);
+      const task = tasks.find(t => t.id === taskToComplete);
+      if (task) {
+        await updateTask(taskToComplete, { 
+          completionNotes: completionNotes || undefined,
+          finishedAt: new Date().toISOString()
+        });
+      }
+    }
+    setCompletionModalOpen(false);
+    setTaskToComplete(null);
+  };
+
   const filteredTasks = tasks.filter(t => {
+    if (activeTab === 'pending' && t.status === 'done') return false;
+    if (activeTab === 'completed' && t.status !== 'done') return false;
     if (filterMode === 'mine' && currentUser) {
       return t.assigneeId === currentUser.uid;
     }
@@ -50,9 +101,11 @@ const Tasks: React.FC = () => {
     setEditingTask(null);
     setTitle('');
     setDescription('');
+    setStartDate('');
     setDueDate(new Date().toISOString().split('T')[0]);
     setAssigneeId(currentUser?.uid || (users[0]?.id || ''));
     setClientId('');
+    setClientSearch('');
     setStatus('todo');
     setPriority('medium');
     setSelectedTags([]);
@@ -64,9 +117,11 @@ const Tasks: React.FC = () => {
     setEditingTask(task);
     setTitle(task.title);
     setDescription(task.description || '');
+    setStartDate(task.startDate ? task.startDate.split('T')[0] : '');
     setDueDate(task.dueDate.split('T')[0]);
     setAssigneeId(task.assigneeId);
     setClientId(task.clientId || '');
+    setClientSearch('');
     setStatus(task.status);
     setPriority(task.priority);
     setSelectedTags(task.tags || []);
@@ -87,15 +142,23 @@ const Tasks: React.FC = () => {
     }
     
     try {
+      const taskData = {
+        title, 
+        description, 
+        dueDate: new Date(dueDate).toISOString(), 
+        startDate: startDate ? new Date(startDate).toISOString() : undefined,
+        assigneeId, 
+        clientId, 
+        status, 
+        priority, 
+        tags: selectedTags, 
+        links
+      };
+      
       if (editingTask) {
-        await updateTask(editingTask.id, {
-          title, description, dueDate: new Date(dueDate).toISOString(), assigneeId, clientId, status, priority, tags: selectedTags, links
-        });
+        await updateTask(editingTask.id, taskData);
       } else {
-        await createTask({
-          title, description, status, priority, assigneeId, clientId,
-          dueDate: new Date(dueDate).toISOString(), tags: selectedTags, links
-        });
+        await createTask(taskData);
       }
       setIsModalOpen(false);
     } catch (err: any) {
@@ -188,59 +251,88 @@ const Tasks: React.FC = () => {
     </div>
   );
 
-  const TaskListItem = ({ task }: { task: Task }) => (
+  const TaskListItem = ({ task }: { task: Task }) => {
+    const isExpanded = expandedNotes.has(task.id);
+    
+    return (
     <div 
-      style={{ display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', gap: '1rem', borderRadius: 'var(--radius)', transition: 'background-color 0.1s ease', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }}
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
-      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-      onClick={() => openEditTaskModal(task)}
+      style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-color)' }}
     >
-      <input 
-        type="checkbox" 
-        checked={task.status === 'done'}
-        onChange={(e) => { e.stopPropagation(); toggleTaskStatus(task.id); }}
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: '1.25rem', height: '1.25rem', cursor: 'pointer', border: '1px solid var(--border-color)', borderRadius: '4px' }}
-      />
-      <div style={{ flex: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none', color: task.status === 'done' ? 'var(--text-muted)' : 'inherit' }}>
-        <p style={{ margin: 0, fontWeight: 500, fontSize: '0.875rem' }}>{task.title}</p>
-        {(task.tags && task.tags.length > 0) && (
-          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-            {task.tags.map(t => (
-              <span key={t.name} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: t.color, color: '#fff' }}>
-                {t.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <User size={14} /> {getAssigneeName(task.assigneeId)}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '90px' }}>
-          <CalendarIcon size={14} /> {format(parseISO(task.dueDate), "dd MMM")}
-        </div>
-        <select 
-          value={task.status}
-          onChange={(e) => { e.stopPropagation(); moveTaskStatus(task.id, e.target.value as TaskStatus); }}
+      <div 
+        style={{ display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', gap: '1rem', borderRadius: 'var(--radius)', transition: 'background-color 0.1s ease', cursor: task.status === 'done' ? 'default' : 'pointer' }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      onClick={() => task.status !== 'done' && openEditTaskModal(task)}
+      >
+        <input 
+          type="checkbox" 
+          checked={task.status === 'done'}
+          onChange={(e) => { e.stopPropagation(); handleToggleStatus(task.id); }}
           onClick={(e) => e.stopPropagation()}
-          style={{ width: 'auto', padding: '0.25rem', backgroundColor: 'transparent', border: 'none', color: 'inherit', outline: 'none', cursor: 'pointer' }}
-        >
-          <option value="todo">A Fazer</option>
-          <option value="doing">Fazendo</option>
-          <option value="done">Concluído</option>
-        </select>
-        <button 
-          onClick={(e) => handleNudge(e, task)} 
-          style={{ color: 'var(--text-color)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
-          title="Cobrar Responsável"
-        >
-          <Bell size={16} />
-        </button>
+          style={{ width: '1.25rem', height: '1.25rem', cursor: 'pointer', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+        />
+        <div style={{ flex: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none', color: task.status === 'done' ? 'var(--text-muted)' : 'inherit' }}>
+          <p style={{ margin: 0, fontWeight: 500, fontSize: '0.875rem' }}>{task.title}</p>
+          {(task.tags && task.tags.length > 0) && (
+            <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+              {task.tags.map(t => (
+                <span key={t.name} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: t.color, color: '#fff' }}>
+                  {t.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        {task.completionNotes && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); const newSet = new Set(expandedNotes); if (newSet.has(task.id)) newSet.delete(task.id); else newSet.add(task.id); setExpandedNotes(newSet); }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--accent-color)' }}
+            title="Ver anotação"
+          >
+            <StickyNote size={16} />
+          </button>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <User size={14} /> {getAssigneeName(task.assigneeId)}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '90px' }}>
+            <CalendarIcon size={14} /> {format(parseISO(task.dueDate), "dd MMM")}
+          </div>
+          <select 
+            value={task.status}
+            onChange={(e) => { e.stopPropagation(); moveTaskStatus(task.id, e.target.value as TaskStatus); }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'auto', padding: '0.25rem', backgroundColor: 'transparent', border: 'none', color: 'inherit', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="todo">A Fazer</option>
+            <option value="doing">Fazendo</option>
+            <option value="done">Concluído</option>
+          </select>
+          <button 
+            onClick={(e) => handleNudge(e, task)} 
+            style={{ color: 'var(--text-color)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
+            title="Cobrar Responsável"
+          >
+            <Bell size={16} />
+          </button>
+        </div>
       </div>
+      {task.completionNotes && isExpanded && (
+        <div style={{ padding: '0.75rem 1rem 1rem 3.25rem', backgroundColor: 'var(--hover-bg)', borderRadius: '0 0 var(--radius) var(--radius)' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>O que fez:</div>
+          <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem' }}>{task.completionNotes}</p>
+          {task.finishedAt && (
+            <>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Concluído em:</div>
+              <p style={{ margin: 0, fontSize: '0.875rem' }}>{format(parseISO(task.finishedAt), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
+  };
 
   const KanbanColumn = ({ status, title }: { status: TaskStatus; title: string }) => {
     const columnTasks = filteredTasks.filter(t => t.status === status);
@@ -264,16 +356,19 @@ const Tasks: React.FC = () => {
           
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', borderBottom: '1px solid var(--border-color)' }}>
             <button 
-              onClick={() => setFilterMode('all')}
-              style={{ padding: '0.5rem 0', background: 'none', border: 'none', borderBottom: filterMode === 'all' ? '2px solid var(--text-color)' : '2px solid transparent', color: filterMode === 'all' ? 'var(--text-color)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer' }}
+              onClick={() => { setFilterMode('all'); setActiveTab('pending'); }}
+              style={{ padding: '0.5rem 0', background: 'none', border: 'none', borderBottom: filterMode === 'all' && activeTab === 'pending' ? '2px solid var(--text-color)' : '2px solid transparent', color: filterMode === 'all' && activeTab === 'pending' ? 'var(--text-color)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer' }}
             >
-              Visão da Agência
+              Pendentes
             </button>
             <button 
-              onClick={() => setFilterMode('mine')}
-              style={{ padding: '0.5rem 0', background: 'none', border: 'none', borderBottom: filterMode === 'mine' ? '2px solid var(--text-color)' : '2px solid transparent', color: filterMode === 'mine' ? 'var(--text-color)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer' }}
+              onClick={() => { setFilterMode('all'); setActiveTab('completed'); }}
+              style={{ padding: '0.5rem 0', background: 'none', border: 'none', borderBottom: activeTab === 'completed' ? '2px solid var(--text-color)' : '2px solid transparent', color: activeTab === 'completed' ? 'var(--text-color)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
             >
-              Minhas Tarefas
+              Concluídas
+              <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--hover-bg)', padding: '2px 6px', borderRadius: '10px' }}>
+                {tasks.filter(t => t.status === 'done').length}
+              </span>
             </button>
           </div>
         </div>
@@ -361,15 +456,80 @@ const Tasks: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Building2 size={16} /> Cliente
                 </div>
-                <select className="select" value={clientId} onChange={e => setClientId(e.target.value)} required>
-                  <option value="">Selecionar Cliente...</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.company} ({c.name})</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <div 
+                    onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem',
+                      border: '1px solid var(--border-color)', borderRadius: 'var(--radius)',
+                      cursor: 'pointer', backgroundColor: 'var(--bg-color)', minHeight: '42px'
+                    }}
+                  >
+                    {selectedClient ? (
+                      <>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: selectedClient.icon || '#666', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: '0.875rem' }}>{selectedClient.company}</span>
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Selecionar Cliente...</span>
+                    )}
+                    <ChevronDown size={16} color="var(--text-muted)" />
+                  </div>
+                  {clientDropdownOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0,
+                      backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius)', marginTop: '4px', zIndex: 100,
+                      maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}>
+                      <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--hover-bg)', borderRadius: 'var(--radius)', padding: '0.25rem 0.5rem' }}>
+                          <Search size={14} color="var(--text-muted)" />
+                          <input
+                            type="text"
+                            placeholder="Pesquisar cliente..."
+                            value={clientSearch}
+                            onChange={e => setClientSearch(e.target.value)}
+                            style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: '0.875rem' }}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      {filteredClients.length === 0 ? (
+                        <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                          Nenhum cliente encontrado
+                        </div>
+                      ) : (
+                        filteredClients.map(c => (
+                          <div
+                            key={c.id}
+                            onClick={() => { setClientId(c.id); setClientSearch(''); setClientDropdownOpen(false); }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
+                              cursor: 'pointer', borderBottom: '1px solid var(--border-color)',
+                              backgroundColor: c.id === clientId ? 'var(--hover-bg)' : 'transparent'
+                            }}
+                          >
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: c.icon || '#666', flexShrink: 0 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{c.company}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.name}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                  <CalendarIcon size={16} /> Prazo
+                  <CalendarIcon size={16} /> Período
                 </div>
-                <input type="date" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input type="date" className="input" value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="Início" style={{ flex: 1 }} />
+                  <span style={{ color: 'var(--text-muted)' }}>até</span>
+                  <input type="date" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ flex: 1 }} />
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <AlignLeft size={16} /> Status
@@ -453,6 +613,54 @@ const Tasks: React.FC = () => {
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* COMPLETION MODAL */}
+      {completionModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }} onClick={() => setCompletionModalOpen(false)}>
+          <div style={{
+            backgroundColor: 'var(--bg-color)', borderRadius: '12px', padding: '1.5rem', width: '90%', maxWidth: '500px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+          }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', fontWeight: 600 }}>Concluir Tarefa</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>Descreva o que você realizou nesta tarefa:</p>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+                O que você fez? *
+              </label>
+              <textarea
+                className="textarea"
+                placeholder="Descreva as atividades realizadas..."
+                value={completionNotes}
+                onChange={e => setCompletionNotes(e.target.value)}
+                style={{ minHeight: '100px' }}
+                required
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+                Observações (opcional)
+              </label>
+              <textarea
+                className="textarea"
+                placeholder="Algo a adicionar?..."
+                value={completionObs}
+                onChange={e => setCompletionObs(e.target.value)}
+                style={{ minHeight: '60px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button className="btn" onClick={() => setCompletionModalOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleConfirmComplete} disabled={!completionNotes.trim()}>
+                Concluir Tarefa
+              </button>
+            </div>
           </div>
         </div>
       )}

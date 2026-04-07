@@ -48,12 +48,11 @@ const NotificationsDropdown: React.FC = () => {
         <div className="card" style={{
           position: 'absolute',
           top: '100%',
-          right: 0,
-          marginTop: '0.5rem',
+          left: 0,
           width: '320px',
           padding: '0.75rem',
           boxShadow: 'rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 3px 6px, rgba(15, 15, 15, 0.2) 0px 9px 24px',
-          zIndex: 50,
+          zIndex: 1000,
           display: 'flex',
           flexDirection: 'column',
           gap: '0.5rem'

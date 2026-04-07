@@ -1,15 +1,15 @@
 import type { User, Client, Task, Briefing } from './types';
 
 export const mockUsers: User[] = [
-  { id: 'u1', name: 'Alana Vieira' },
-  { id: 'u2', name: 'Bruno Costa' },
-  { id: 'u3', name: 'Camila Silva' },
+  { id: 'u1', name: 'Alana Vieira', role: 'admin' },
+  { id: 'u2', name: 'Bruno Costa', role: 'user' },
+  { id: 'u3', name: 'Camila Silva', role: 'user' },
 ];
 
 export const mockClients: Client[] = [
-  { id: 'c1', name: 'João Silva', company: 'Techcorp SA', email: 'joao@tech.com', phone: '1199999999' },
-  { id: 'c2', name: 'Maria Souza', company: 'Design Studio', email: 'maria@design.com', phone: '2198888888' },
-  { id: 'c3', name: 'Pedro Alves', company: 'Marketing Pro', email: 'pedro@mkt.com', phone: '3197777777' },
+  { id: 'c1', name: 'João Silva', company: 'Techcorp SA', email: 'joao@tech.com', phone: '1199999999', createdAt: new Date().toISOString() },
+  { id: 'c2', name: 'Maria Souza', company: 'Design Studio', email: 'maria@design.com', phone: '2198888888', createdAt: new Date().toISOString() },
+  { id: 'c3', name: 'Pedro Alves', company: 'Marketing Pro', email: 'pedro@mkt.com', phone: '3197777777', createdAt: new Date().toISOString() },
 ];
 
 export const mockTasks: Task[] = [
@@ -63,8 +63,10 @@ export const mockBriefings: Briefing[] = [
   {
     id: 'b1',
     clientId: 'c1',
+    folderId: null,
     title: 'Redesign do Sistema Interno',
     content: 'Objetivo: Criar uma interface limpa, apenas em preto e branco. Foco total em legibilidade e performance.',
+    order: 0,
     createdAt: new Date().toISOString()
   }
 ];

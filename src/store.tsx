@@ -1,17 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { useAuth } from './contexts/AuthContext';
-import type { Task, Client, User, Briefing, AppNotification } from './types';
-
-// removed mock fallbacks
+import type { Task, Client, User, Briefing, AppNotification, ActivityLog, Folder, Objective } from './types';
 
 interface AppState {
   tasks: Task[];
   clients: Client[];
   users: User[];
   briefings: Briefing[];
+  folders: Folder[];
   notifications: AppNotification[];
+  logs: ActivityLog[];
+  objectives: Objective[];
 }
 
 interface StoreContextType extends AppState {
@@ -20,12 +21,22 @@ interface StoreContextType extends AppState {
   deleteTask: (id: string) => Promise<void>;
   toggleTaskStatus: (id: string) => Promise<void>;
   moveTaskStatus: (id: string, newStatus: Task['status']) => Promise<void>;
-  createClient: (client: Omit<Client, 'id'>) => Promise<void>;
+  createClient: (client: Omit<Client, 'id' | 'createdAt'>) => Promise<void>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
+  createFolder: (folder: Omit<Folder, 'id' | 'createdAt'>) => Promise<void>;
+  updateFolder: (id: string, updates: Partial<Folder>) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
   createBriefing: (briefing: Omit<Briefing, 'id' | 'createdAt'>) => Promise<void>;
   updateBriefing: (id: string, updates: Partial<Briefing>) => Promise<void>;
   deleteBriefing: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   notifyUser: (userId: string, message: string) => Promise<void>;
+  clearOldLogs: () => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  createObjective: (objective: Omit<Objective, 'id' | 'createdAt'>) => Promise<void>;
+  updateObjective: (id: string, updates: Partial<Objective>) => Promise<void>;
+  deleteObjective: (id: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -37,7 +48,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [briefings, setBriefings] = useState<Briefing[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [objectives, setObjectives] = useState<Objective[]>([]);
 
   // Subscrições via onSnapshot (Realtime com Firebase)
   useEffect(() => {
@@ -61,8 +75,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setBriefings(snap.docs.map(d => ({ ...d.data(), id: d.id } as Briefing)));
     }));
 
+    unsubs.push(onSnapshot(collection(db, 'folders'), (snap) => {
+      setFolders(snap.docs.map(d => ({ ...d.data(), id: d.id } as Folder)));
+    }));
+
     unsubs.push(onSnapshot(collection(db, 'notifications'), (snap) => {
       setNotifications(snap.docs.map(d => ({ ...d.data(), id: d.id } as AppNotification)));
+    }));
+
+    unsubs.push(onSnapshot(query(collection(db, 'logs'), orderBy('createdAt', 'desc'), limit(100)), (snap) => {
+      setLogs(snap.docs.map(d => ({ ...d.data(), id: d.id } as ActivityLog)));
+    }));
+    
+    unsubs.push(onSnapshot(collection(db, 'objectives'), (snap) => {
+      setObjectives(snap.docs.map(d => ({ ...d.data(), id: d.id } as Objective)));
     }));
 
     return () => {
@@ -126,24 +152,76 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await updateDoc(doc(db, 'tasks', id), { status: newStatus });
   };
 
-  const createClient = async (client: Omit<Client, 'id'>) => {
+  const createClient = async (client: Omit<Client, 'id' | 'createdAt'>) => {
     const id = generateId();
-    const newClient: Client = { ...client, id };
+    const newClient: Client = { ...client, id, createdAt: new Date().toISOString() };
     await setDoc(doc(db, 'clients', id), newClient);
+  };
+
+  const createFolder = async (folder: Omit<Folder, 'id' | 'createdAt'>) => {
+    const id = generateId();
+    const newFolder: Folder = { ...folder, id, createdAt: new Date().toISOString() };
+    await setDoc(doc(db, 'folders', id), newFolder);
+  };
+
+  const updateFolder = async (id: string, updates: Partial<Folder>) => {
+    await updateDoc(doc(db, 'folders', id), updates);
+  };
+
+  const deleteFolder = async (id: string) => {
+    await deleteDoc(doc(db, 'folders', id));
   };
 
   const createBriefing = async (briefing: Omit<Briefing, 'id' | 'createdAt'>) => {
     const id = generateId();
-    const newBriefing: Briefing = { ...briefing, id, createdAt: new Date().toISOString() };
+    const newBriefing: Briefing = { 
+      ...briefing, 
+      id, 
+      createdAt: new Date().toISOString(),
+      folderId: briefing.folderId || null,
+      order: briefing.order || 0
+    };
     await setDoc(doc(db, 'briefings', id), newBriefing);
   };
 
   const updateBriefing = async (id: string, updates: Partial<Briefing>) => {
-    await updateDoc(doc(db, 'briefings', id), updates);
+    await updateDoc(doc(db, 'briefings', id), { ...updates, updatedAt: new Date().toISOString() });
   };
 
   const deleteBriefing = async (id: string) => {
     await deleteDoc(doc(db, 'briefings', id));
+  };
+
+  const updateClient = async (id: string, updates: Partial<Client>) => {
+    await updateDoc(doc(db, 'clients', id), updates);
+  };
+
+  const deleteClient = async (id: string) => {
+    await deleteDoc(doc(db, 'clients', id));
+  };
+
+  const createObjective = async (objective: Omit<Objective, 'id' | 'createdAt'>) => {
+    const id = generateId();
+    const newObjective: Objective = { ...objective, id, createdAt: new Date().toISOString() };
+    await setDoc(doc(db, 'objectives', id), newObjective);
+  };
+
+  const updateObjective = async (id: string, updates: Partial<Objective>) => {
+    await updateDoc(doc(db, 'objectives', id), { ...updates, updatedAt: new Date().toISOString() });
+  };
+
+  const deleteObjective = async (id: string) => {
+    await deleteDoc(doc(db, 'objectives', id));
+  };
+
+  const clearOldLogs = async () => {
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const dateLimit = sixtyDaysAgo.toISOString();
+    const oldLogs = logs.filter(l => l.createdAt < dateLimit);
+    for (const log of oldLogs) {
+      await deleteDoc(doc(db, 'logs', log.id));
+    }
   };
 
   const markNotificationRead = async (id: string) => {
@@ -161,11 +239,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const updateUser = async (id: string, updates: Partial<User>) => {
+    await updateDoc(doc(db, 'users', id), updates);
+  };
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    
+    const updateLastActive = async () => {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), { lastActive: new Date().toISOString() });
+      } catch (err) {
+        console.error('Error updating lastActive:', err);
+      }
+    };
+
+    updateLastActive();
+    const interval = setInterval(updateLastActive, 60000);
+
+    return () => clearInterval(interval);
+  }, [currentUser?.uid]);
+
   return (
     <StoreContext.Provider value={{
-      tasks, clients, users, briefings, notifications,
+      tasks, clients, users, briefings, folders, notifications, logs,
       createTask, updateTask, deleteTask, toggleTaskStatus, moveTaskStatus,
-      createClient, createBriefing, updateBriefing, deleteBriefing, markNotificationRead, notifyUser
+      createClient, updateClient, deleteClient, 
+      createFolder, updateFolder, deleteFolder,
+      createBriefing, updateBriefing, deleteBriefing, 
+      markNotificationRead, notifyUser, clearOldLogs, updateUser,
+      objectives, createObjective, updateObjective, deleteObjective
     }}>
       {children}
     </StoreContext.Provider>
