@@ -319,10 +319,48 @@ const Timeline: React.FC<TimelineProps> = ({ clientId }) => {
             );
           })}
 
-          {/* DAYS GRID (Faint) */}
-          {pxPerUnit > 120 && days.map(d => (
-            <div key={d.toISOString()} className="grid-line" style={{ left: getPos(d), borderLeft: '1px dashed #000', opacity: 0.25 }} />
-          ))}
+          {/* DAYS GRID with Numbers - Google Calendar Style */}
+          {pxPerUnit > 100 && days.map(d => {
+            const dayNum = d.getDate();
+            const isToday = format(d, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            return (
+              <div key={d.toISOString()} className="grid-line" style={{ left: getPos(d), borderLeft: isWeekend ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(0,0,0,0.04)' }}>
+                <span style={{ 
+                  position: 'absolute', 
+                  top: '8px', 
+                  left: '6px', 
+                  fontSize: '11px', 
+                  fontWeight: isToday ? 800 : 500, 
+                  color: isToday ? '#3b82f6' : (isWeekend ? '#999' : '#666'),
+                  backgroundColor: isToday ? '#3b82f6' : 'transparent',
+                  borderRadius: isToday ? '50%' : '0',
+                  width: isToday ? '22px' : 'auto',
+                  height: isToday ? '22px' : 'auto',
+                  display: isToday ? 'flex' : 'block',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {dayNum}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* WEEK Numbers - Show when zoomed to Semanas */}
+          {pxPerUnit > 30 && pxPerUnit <= 100 && months.map(m => {
+            const weeksInMonth = Math.ceil(getDaysInMonth(m) / 7);
+            return Array.from({ length: weeksInMonth }).map((_, weekIdx) => {
+              const weekStart = weekIdx + 1;
+              return (
+                <div key={`${m.toISOString()}-w${weekIdx}`} className="grid-line" style={{ left: getPos(m) + (weekIdx * 7 * pxPerUnit), borderLeft: '1px dashed rgba(0,0,0,0.15)' }}>
+                  <span style={{ position: 'absolute', top: '8px', left: '8px', fontSize: '10px', fontWeight: 600, color: '#888' }}>
+                    S{weekStart}
+                  </span>
+                </div>
+              );
+            });
+          })}
 
           {/* TODAY LINE */}
           <div style={{ position: 'absolute', left: getPos(new Date()), top: 0, bottom: 0, width: '2.5px', backgroundColor: '#3b82f6', zIndex: 10, boxShadow: '0 0 15px rgba(59,130,246,0.5)' }} />
@@ -383,58 +421,177 @@ const Timeline: React.FC<TimelineProps> = ({ clientId }) => {
         </div>
       )}
 
-      {/* FULL MODAL (Recovered & Fixed) */}
+      {/* FULL MODAL - Styled consistently with the system */}
       {isAdding && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(15px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="card" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '520px', padding: '2.5rem', border: 'none', boxShadow: '0 40px 100px rgba(0,0,0,0.4)', borderRadius: '24px', position: 'relative', backgroundColor: 'var(--card-bg)' }}>
-            <button className="btn" onClick={() => setIsAdding(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.5 }}><X size={24} /></button>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 900, marginBottom: '2.5rem', letterSpacing: '-0.02em' }}>{editingObjective ? 'Editar Planejamento' : 'Novo Planejamento'}</h2>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div 
+            onClick={e => e.stopPropagation()} 
+            style={{ 
+              width: '100%', 
+              maxWidth: '540px', 
+              maxHeight: '90vh',
+              overflow: 'auto',
+              padding: '2rem', 
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)', 
+              borderRadius: '24px', 
+              position: 'relative', 
+              backgroundColor: 'var(--bg-color)',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            <button 
+              onClick={() => setIsAdding(false)} 
+              style={{ 
+                position: 'absolute', 
+                top: '1rem', 
+                right: '1rem', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer', 
+                color: 'var(--text-muted)',
+                padding: '0.5rem'
+              }}
+            >
+              <X size={20} />
+            </button>
+            
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--text-color)' }}>
+              {editingObjective ? 'Editar Planejamento' : 'Novo Planejamento'}
+            </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 900, color: '#666', marginBottom: '0.75rem', display: 'block' }}>TÍTULO DO OBJETIVO</label>
-                <input autoFocus className="input" style={{ height: '54px', fontSize: '1.1rem', fontWeight: 800, border: '2px solid var(--border-color)', borderRadius: '14px' }} value={formFields.title} onChange={e => setFormFields({...formFields, title: e.target.value})} placeholder="Ex: Entrega da Landing Page..." />
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Título do Objetivo
+                </label>
+                <input 
+                  autoFocus 
+                  className="input" 
+                  style={{ width: '100%' }}
+                  value={formFields.title} 
+                  onChange={e => setFormFields({...formFields, title: e.target.value})} 
+                  placeholder="Ex: Entrega da Landing Page..." 
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 900, color: '#666', marginBottom: '0.75rem', display: 'block' }}>DATA ESTIMADA</label>
-                  <input type="date" className="input" style={{ height: '54px', borderRadius: '14px' }} value={formFields.startDate} onChange={e => setFormFields({...formFields, startDate: e.target.value, endDate: e.target.value})} />
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Data
+                  </label>
+                  <input 
+                    type="date" 
+                    className="input" 
+                    style={{ width: '100%' }}
+                    value={formFields.startDate} 
+                    onChange={e => setFormFields({...formFields, startDate: e.target.value, endDate: e.target.value})} 
+                  />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 900, color: '#666', marginBottom: '0.75rem', display: 'block' }}>VISIBILIDADE</label>
-                  <select className="input" style={{ height: '54px', borderRadius: '14px' }} value={formFields.visibility} onChange={e => setFormFields({...formFields, visibility: e.target.value as any})}>
-                    <option value="public">Público (Visível para o Cliente)</option>
-                    <option value="internal">Interno (Somente equipe DOCA)</option>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Visibilidade
+                  </label>
+                  <select 
+                    className="input" 
+                    style={{ width: '100%' }}
+                    value={formFields.visibility} 
+                    onChange={e => setFormFields({...formFields, visibility: e.target.value as any})}
+                  >
+                    <option value="public">Público</option>
+                    <option value="internal">Interno</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 900, color: '#666', marginBottom: '1rem', display: 'block' }}>CATEGORIA / TAG</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1.2rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Categoria
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1rem' }}>
                   {allTags.map(tag => (
-                    <button key={tag.name} onClick={() => setFormFields({...formFields, category_name: tag.name, category_color: tag.color})} className="tag-btn" style={{ backgroundColor: formFields.category_name === tag.name ? tag.color : '#f1f1f1', color: formFields.category_name === tag.name ? 'white' : '#666' }}>{tag.name}</button>
+                    <button 
+                      key={tag.name} 
+                      onClick={() => setFormFields({...formFields, category_name: tag.name, category_color: tag.color})} 
+                      style={{ 
+                        padding: '6px 12px', 
+                        borderRadius: '20px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 600, 
+                        border: 'none', 
+                        cursor: 'pointer',
+                        backgroundColor: formFields.category_name === tag.name ? tag.color : 'var(--hover-bg)', 
+                        color: formFields.category_name === tag.name ? 'white' : 'var(--text-color)',
+                      }}
+                    >
+                      {tag.name}
+                    </button>
                   ))}
-                  <button onClick={() => { const n = prompt('Nome da nova tag:'); if(n) setFormFields({...formFields, category_name: n}); }} className="tag-btn" style={{ backgroundColor: '#e2e2e2', color: '#000' }}>+ Criar Nova Tag</button>
+                  <button 
+                    onClick={() => { const n = prompt('Nome da nova tag:'); if(n) setFormFields({...formFields, category_name: n}); }} 
+                    style={{ 
+                      padding: '6px 12px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600, 
+                      border: '1px dashed var(--border-color)', 
+                      cursor: 'pointer',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    + Nova
+                  </button>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {PRESET_COLORS.map(c => (
-                    <button key={c} onClick={() => setFormFields({...formFields, category_color: c})} style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: c, border: formFields.category_color === c ? '3px solid white' : 'none', boxShadow: formFields.category_color === c ? `0 0 0 2.5px ${c}` : 'none', cursor: 'pointer' }} />
+                    <button 
+                      key={c} 
+                      onClick={() => setFormFields({...formFields, category_color: c})} 
+                      style={{ 
+                        width: '28px', 
+                        height: '28px', 
+                        borderRadius: '50%', 
+                        backgroundColor: c, 
+                        border: formFields.category_color === c ? '3px solid white' : 'none', 
+                        boxShadow: formFields.category_color === c ? `0 0 0 2px ${c}` : 'none', 
+                        cursor: 'pointer' 
+                      }} 
+                    />
                   ))}
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 900, color: '#666', marginBottom: '0.75rem', display: 'block' }}>DESCRIÇÃO (NOTAS)</label>
-                <textarea className="textarea" style={{ minHeight: '100px', borderRadius: '14px', border: '2px solid var(--border-color)', fontSize: '0.95rem' }} value={formFields.description} onChange={e => setFormFields({...formFields, description: e.target.value})} placeholder="Notas extras sobre este objetivo..." />
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Descrição
+                </label>
+                <textarea 
+                  className="textarea" 
+                  style={{ minHeight: '80px', width: '100%' }}
+                  value={formFields.description} 
+                  onChange={e => setFormFields({...formFields, description: e.target.value})} 
+                  placeholder="Notas extras..." 
+                />
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem' }}>
-              <button className="btn btn-primary" onClick={handleSave} style={{ flex: 1, height: '56px', fontSize: '1.1rem', fontWeight: 900, borderRadius: '16px' }}>{editingObjective ? 'Salvar Edição' : 'Criar Planejamento'}</button>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button className="btn btn-primary" onClick={handleSave} style={{ flex: 1 }}>
+                {editingObjective ? 'Salvar' : 'Criar'}
+              </button>
               {editingObjective && (
-                <button className="btn" onClick={async () => { if(confirm('Excluir objetivo?')) await deleteObjective(editingObjective.id); setIsAdding(false); }} style={{ width: '56px', height: '56px', color: 'var(--danger)', borderRadius: '16px' }}><Trash size={20} /></button>
+                <button 
+                  className="btn" 
+                  onClick={async () => { 
+                    if(confirm('Excluir objetivo?')) {
+                      await deleteObjective(editingObjective.id); 
+                      setIsAdding(false); 
+                    }
+                  }} 
+                  style={{ color: 'var(--danger)' }}
+                >
+                  <Trash size={18} />
+                </button>
               )}
             </div>
           </div>

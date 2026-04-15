@@ -2,7 +2,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { useAuth } from './contexts/AuthContext';
-import type { Task, Client, User, Briefing, AppNotification, ActivityLog, Folder, Objective } from './types';
+import type { Task, Client, User, Briefing, AppNotification, ActivityLog, Folder, Objective, NotificationType, Strategy } from './types';
+import { normalizeTask } from './types';
+import { soundManager } from './sounds';
 
 interface AppState {
   tasks: Task[];
@@ -13,6 +15,7 @@ interface AppState {
   notifications: AppNotification[];
   logs: ActivityLog[];
   objectives: Objective[];
+  strategies: Strategy[];
 }
 
 interface StoreContextType extends AppState {
@@ -31,12 +34,14 @@ interface StoreContextType extends AppState {
   updateBriefing: (id: string, updates: Partial<Briefing>) => Promise<void>;
   deleteBriefing: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
-  notifyUser: (userId: string, message: string) => Promise<void>;
+  notifyUser: (userId: string, message: string, opts?: { type?: NotificationType; actorId?: string; entityId?: string; tags?: string[] }) => Promise<void>;
   clearOldLogs: () => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
   createObjective: (objective: Omit<Objective, 'id' | 'createdAt'>) => Promise<void>;
   updateObjective: (id: string, updates: Partial<Objective>) => Promise<void>;
   deleteObjective: (id: string) => Promise<void>;
+  saveStrategy: (clientId: string, month: string, elements: any[], appState: any) => Promise<void>;
+  addLog: (action: string, details: string, targetId?: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -52,6 +57,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
 
   // Subscrições via onSnapshot (Realtime com Firebase)
   useEffect(() => {
@@ -89,6 +95,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     unsubs.push(onSnapshot(collection(db, 'objectives'), (snap) => {
       setObjectives(snap.docs.map(d => ({ ...d.data(), id: d.id } as Objective)));
+    }));
+
+    unsubs.push(onSnapshot(collection(db, 'strategies'), (snap) => {
+      setStrategies(snap.docs.map(d => ({ ...d.data(), id: d.id } as Strategy)));
     }));
 
     return () => {
@@ -260,6 +270,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(interval);
   }, [currentUser?.uid]);
 
+  const saveStrategy = async (clientId: string, month: string, elements: any[], appState: any) => {
+    // Serialize elements to safely bypass Firestore unstructured data and undefined value limits
+    const payload = JSON.stringify(elements);
+    const bgPayload = appState?.viewBackgroundColor || '#ffffff';
+    
+    const existing = strategies.find(s => s.clientId === clientId && s.month === month);
+    if (existing) {
+      await updateDoc(doc(db, 'strategies', existing.id), {
+        payload,
+        bgPayload,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      const id = generateId();
+      await setDoc(doc(db, 'strategies', id), {
+        id,
+        clientId,
+        month,
+        payload,
+        bgPayload,
+        createdAt: new Date().toISOString()
+      });
+    }
+  };
+
+  const addLog = async (action: string, details: string, targetId?: string) => {
+    if (!currentUser) return;
+    const user = users.find(u => u.id === currentUser.uid);
+    const logId = generateId();
+    const newLog: ActivityLog = {
+      id: logId,
+      userId: currentUser.uid,
+      userName: user?.name || currentUser.email?.split('@')[0] || 'Usuário',
+      action,
+      details,
+      targetId,
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(doc(db, 'logs', logId), newLog);
+  };
+
   return (
     <StoreContext.Provider value={{
       tasks, clients, users, briefings, folders, notifications, logs,
@@ -268,7 +319,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createFolder, updateFolder, deleteFolder,
       createBriefing, updateBriefing, deleteBriefing, 
       markNotificationRead, notifyUser, clearOldLogs, updateUser,
-      objectives, createObjective, updateObjective, deleteObjective
+      objectives, createObjective, updateObjective, deleteObjective,
+      strategies, saveStrategy, addLog
     }}>
       {children}
     </StoreContext.Provider>

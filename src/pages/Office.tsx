@@ -6,10 +6,16 @@ import { X, Briefcase, FileText } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isToday as isDateToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-const AVATAR_SEED = 'cebolask-avatar';
-
-const getAvatarUrl = (style: string | undefined) => {
-  return `https://api.dicebear.com/9.x/${style || 'initials'}/svg?seed=${AVATAR_SEED}`;
+const getAvatarContent = (user: User) => {
+  if (user.avatar) {
+    return <img src={user.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+  }
+  const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', fontSize: '1rem', fontWeight: 700, color: '#64748b' }}>
+      {initials}
+    </div>
+  );
 };
 
 const DESK_POSITIONS = [
@@ -69,18 +75,20 @@ const Office: React.FC = () => {
   };
 
   // Funções de filtro - usando valores corretos do tipo TaskStatus
+  const getUserAssigneeIds = (t: typeof tasks[0]) => t.assigneeIds?.length ? t.assigneeIds : t.assigneeId ? [t.assigneeId] : [];
+
   const getTasksFazendo = (userId: string) => tasks.filter(t => {
-    if (t.assigneeId !== userId) return false;
+    if (!getUserAssigneeIds(t).includes(userId)) return false;
     return t.status === 'doing';
   });
 
   const getTasksAFazer = (userId: string) => tasks.filter(t => {
-    if (t.assigneeId !== userId) return false;
+    if (!getUserAssigneeIds(t).includes(userId)) return false;
     return t.status === 'todo';
   });
 
   const getTasksConcluidasHoje = (userId: string) => tasks.filter(t => {
-    if (t.assigneeId !== userId) return false;
+    if (!getUserAssigneeIds(t).includes(userId)) return false;
     if (t.status !== 'done') return false;
 
     try {
@@ -104,10 +112,10 @@ const Office: React.FC = () => {
       }}
       onWheel={handleWheel}
     >
-      <header style={{ position: 'absolute', top: '3.5rem', left: '3.5rem', zIndex: 10, pointerEvents: 'none' }}>
-        <div style={{ pointerEvents: 'auto' }}>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>{CONTENT_CONFIG.texts.officeTitle}</h1>
-          <p style={{ color: '#64748b', fontWeight: 500, margin: '4px 0 0 0' }}>{CONTENT_CONFIG.office.roomName} • {officeUsers.length} Colaboradores</p>
+      <header style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 50, pointerEvents: 'none' }}>
+        <div style={{ pointerEvents: 'auto', backgroundColor: 'rgba(255,255,255,0.9)', padding: '0.75rem 1rem', borderRadius: '12px', backdropFilter: 'blur(8px)' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>{CONTENT_CONFIG.texts.officeTitle}</h1>
+          <p style={{ color: '#64748b', fontWeight: 500, margin: '2px 0 0 0', fontSize: '0.8rem' }}>{CONTENT_CONFIG.office.roomName} • {officeUsers.length} Colaboradores</p>
         </div>
       </header>
 
@@ -119,7 +127,7 @@ const Office: React.FC = () => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', inset: 0, zIndex: 1,
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
           transformOrigin: 'center center',
           transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -230,7 +238,7 @@ const Office: React.FC = () => {
                     </div>
                     <div onClick={() => focusOnUser(user, index)} style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
                       <div style={{ width: '64px', height: '64px', backgroundColor: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: online ? '4px solid #22c55e' : '4px solid #CBD5E1', boxShadow: '0 8px 16px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-                        <img src={getAvatarUrl(user.avatarStyle)} style={{ width: '100%', height: '100%' }} />
+                        {getAvatarContent(user)}
                       </div>
                       {online && <div className="online-pulse" />}
                     </div>
@@ -272,7 +280,7 @@ const Office: React.FC = () => {
           <button onClick={() => { setSelectedUser(null); setZoom(1); setOffset({ x: 0, y: 0 }); }} className="close-btn"><X size={24} /></button>
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ width: 80, height: 80, backgroundColor: '#f9f9f9', borderRadius: '50%', margin: '0 auto 1.5rem', border: '4px solid #f9f9f9', boxShadow: '0 8px 16px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-              <img src={getAvatarUrl(selectedUser.avatarStyle)} style={{ width: '100%', height: '100%' }} />
+              {getAvatarContent(selectedUser)}
             </div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{selectedUser.name}</h2>
             <p style={{ fontSize: '0.875rem', color: isUserOnline(selectedUser.lastActive) ? '#22c55e' : '#999', fontWeight: 600 }}>

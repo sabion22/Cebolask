@@ -7,8 +7,9 @@ import Calendar from './pages/Calendar'
 import Clients from './pages/Clients'
 import Office from './pages/Office'
 import SettingsPage from './pages/Settings'
+import Agents from './pages/Agents'
 
-export type Page = 'dashboard' | 'tasks' | 'calendar' | 'clients' | 'office' | 'settings'
+export type Page = 'dashboard' | 'tasks' | 'calendar' | 'clients' | 'office' | 'settings' | 'agents'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -21,6 +22,7 @@ function App() {
       case 'clients': return <Clients />
       case 'office': return <Office />
       case 'settings': return <SettingsPage />
+      case 'agents': return <Agents />
       default: return <Dashboard />
     }
   }
